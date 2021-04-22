@@ -1,0 +1,148 @@
+[1mdiff --git a/SDK/include/datastructure.h b/SDK/include/datastructure.h[m
+[1mindex 19e8acb..b486c4f 100644[m
+[1m--- a/SDK/include/datastructure.h[m
+[1m+++ b/SDK/include/datastructure.h[m
+[36m@@ -95,13 +95,14 @@[m [menum Order{[m
+     Right_Putinto = 15,      //右放货[m
+     Unlock_layer = 16,       //将小车锁定的层解锁（小车进电梯时）[m
+     Scan_Code    = 17,       //[m
+[31m-    Runner_Start = 18,      //流道启动[m
+[31m-    Runner_Stop = 19,      //流道停止[m
+[32m+[m[32m    Runner_Start = 18,       //流道启动[m
+[32m+[m[32m    Runner_Stop = 19,        //流道停止[m
+     Runner_Scancode1_Out = 20, //一层扫码位请求[m
+     Runner_Scancode2_In = 21,// 入库扫码[m
+     Runner_CarPickFinished = 22,[m
+     Runner_CarputFinished = 23,//小车放货完成[m
+[31m-    Runner_InPushBox = 24,//入库出箱指令[m
+[32m+[m[32m    Runner_InPushBox = 24,     //入库出箱指令[m
+[32m+[m[32m    In_elevator_call = 25,[m
+ };[m
+ typedef struct _HttpParameter[m
+ {[m
+[1mdiff --git a/WarehouseControlSystem/ControlClass/Instructions/carelevatorinstruction.cpp b/WarehouseControlSystem/ControlClass/Instructions/carelevatorinstruction.cpp[m
+[1mindex 8d6723c..ac9a6b2 100644[m
+[1m--- a/WarehouseControlSystem/ControlClass/Instructions/carelevatorinstruction.cpp[m
+[1m+++ b/WarehouseControlSystem/ControlClass/Instructions/carelevatorinstruction.cpp[m
+[36m@@ -30,6 +30,7 @@[m [mvoid CarElevatorInstruction::runInstruction()[m
+     //to check car status status 0--->1[m
+     //    if(Myconfig::GetInstance()->m_elevatorMap[m_id].status.isLock == false && Myconfig::GetInstance()->m_elevatorMap[m_id].status.isOnline == true)[m
+     //    {[m
+[32m+[m
+     Myconfig::GetInstance()->m_elevatorMap[m_id].status.isLock = true;[m
+     //emit order to interface[m
+     qDebug()<<"exec begin "<<QDateTime::currentDateTime().toString();[m
+[1mdiff --git a/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.cpp b/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.cpp[m
+[1mindex 60bc1c4..8b09b17 100644[m
+[1m--- a/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.cpp[m
+[1m+++ b/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.cpp[m
+[36m@@ -13,75 +13,6 @@[m [mQQueue<OrderStru> GetOutTrajectory::getTrajectory()[m
+     return m_taskQueue;[m
+ }[m
+ [m
+[31m-void GetOutTrajectory::getTrajectory_out()[m
+[31m-{[m
+[31m-    OrderStru o;[m
+[31m-    m_carBeginPosition = Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion;[m
+[31m-    // same layer[m
+[31m-    if(m_carBeginPosition.z == m_task_p.z)[m
+[31m-    {[m
+[31m-        if(m_carBeginPosition.x == m_isYTrack)// same y track  判断是否在Y巷道上，如果不在移动到料箱相同的Y[m
+[31m-        {[m
+[31m-            o.order = Order::Y;[m
+[31m-            o.value = m_task_p.y - m_carBeginPosition.y;[m
+[31m-            if(o.value != 0)[m
+[31m-                m_taskQueue.enqueue(o);[m
+[31m-        }[m
+[31m-        else[m
+[31m-        {[m
+[31m-            if(m_carBeginPosition.y != m_task_p.y)[m
+[31m-            {[m
+[31m-                o.order = Order::X;[m
+[31m-                o.value = m_isYTrack - m_carBeginPosition.x;[m
+[31m-                m_taskQueue.enqueue(o);[m
+[31m-                o.order = Order::Y;[m
+[31m-                o.value = m_task_p.y - m_carBeginPosition.y;[m
+[31m-                m_taskQueue.enqueue(o);[m
+[31m-            }[m
+[31m-        }[m
+[31m-    }[m
+[31m-    else[m
+[31m-    {[m
+[31m-        if(m_carBeginPosition.x == m_isYTrack) // car at y track 判断是否在Y巷道上，如果不在移动到料箱相同的Y 然后进电梯 出电梯[m
+[31m-        {[m
+[31m-            if(m_carBeginPosition.y == m_elevatorY)[m
+[31m-            {[m
+[31m-                inElevator();[m
+[31m-            }[m
+[31m-            else[m
+[31m-            {[m
+[31m-                o.order = Order::Y;[m
+[31m-                o.value = m_elevatorY - m_carBeginPosition.y;[m
+[31m-                m_taskQueue.enqueue(o);[m
+[31m-                inElevator();[m
+[31m-            }[m
+[31m-        }[m
+[31m-        else[m
+[31m-        {[m
+[31m-            if(m_carBeginPosition.y != m_elevatorY)[m
+[31m-            {[m
+[31m-                o.order = Order::X;[m
+[31m-                o.value = m_isYTrack - m_carBeginPosition.x;[m
+[31m-                m_taskQueue.enqueue(o);[m
+[31m-[m
+[31m-                o.order = Order::Y;[m
+[31m-                o.value = m_elevatorY - m_carBeginPosition.y;[m
+[31m-                m_taskQueue.enqueue(o);[m
+[31m-            }[m
+[31m-            inElevator();[m
+[31m-        }[m
+[31m-        o.order = Order::Call;[m
+[31m-        o.value = m_task_p.z;[m
+[31m-        m_taskQueue.enqueue(o);[m
+[31m-        outElevator();[m
+[31m-        o.order = Order::Y;[m
+[31m-        o.value = m_task_p.y - m_elevatorY;[m
+[31m-        if(o.value != 0)[m
+[31m-            m_taskQueue.enqueue(o);[m
+[31m-    }[m
+[31m-    pickUp();[m
+[31m-}[m
+[31m-[m
+ void GetOutTrajectory::getTrajectory_out_v1()[m
+ {[m
+     OrderStru o;[m
+[36m@@ -113,7 +44,7 @@[m [mvoid GetOutTrajectory::getTrajectory_out_v1()[m
+     else[m
+     {[m
+         o.order = Order::Call;[m
+[31m-         o.startaddress = 50;[m
+[32m+[m[32m        o.startaddress = 50;[m
+         o.z = Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.z;[m
+         m_taskQueue.enqueue(o);[m
+         if(m_carBeginPosition.y == 0) // car at y track 判断是否在Y巷道上,然后进电梯 出电梯[m
+[1mdiff --git a/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.h b/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.h[m
+[1mindex 7d258ca..7606598 100644[m
+[1m--- a/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.h[m
+[1m+++ b/WarehouseControlSystem/ControlClass/WarehousingIn/getouttrajectory.h[m
+[36m@@ -17,7 +17,6 @@[m [mpublic:[m
+     QQueue<OrderStru> getTrajectory();[m
+ private:[m
+ [m
+[31m-     void getTrajectory_out();[m
+      void getTrajectory_out_v1();[m
+      void inElevator();[m
+      void outElevator();[m
+[1mdiff --git a/WarehouseControlSystem/mainwindow.h b/WarehouseControlSystem/mainwindow.h[m
+[1mindex 81effea..471ee6c 100644[m
+[1m--- a/WarehouseControlSystem/mainwindow.h[m
+[1m+++ b/WarehouseControlSystem/mainwindow.h[m
+[36m@@ -84,7 +84,7 @@[m [mprivate:[m
+     QLabel        *m_list_lab;[m
+     QWidget       *p_main_widget;[m
+     CurrentTask   *t;[m
+[31m-    AlarmInfoWg *m_palarmWg;[m
+[32m+[m[32m    AlarmInfoWg   *m_palarmWg;[m
+     LogForms      *m_pLog;[m
+     AgvForm       *car_from;[m
+     AllTask       *m_pTaskAll;[m

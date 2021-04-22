@@ -1,0 +1,245 @@
+#include "carinstruction.h"
+#define TIMEOUT 35000
+CarInstruction::CarInstruction()
+{  
+    m_result = -4;
+    m_instructMsg = "";
+}
+void CarInstruction::setParameter(OrderStru o, int device_id)
+{
+    m_id = device_id;
+    m_order = o;
+}
+void CarInstruction::runInstruction()
+{
+    //小车可以接受指令(无故障，就绪，可以接受指令)
+   //if((Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.isOnline) && (Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.berror == false) && (s.statusinfodstru.bunready == true) && (Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.bready == false))
+    struct timeval tpStart,tpEnd;
+    float timeUse = 0;
+    gettimeofday(&tpStart,NULL);
+    while(true)
+    {
+        if(Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.isOnline && Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.bready != 0)
+        {
+            break;
+        }
+        gettimeofday(&tpEnd,NULL);
+        timeUse = 1000 *(tpEnd.tv_sec - tpStart.tv_sec) + 0.001*(tpEnd.tv_usec - tpStart.tv_usec);
+        if(timeUse >= 200000 || Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.berror != 0)
+        {
+            qDebug()<<"wait car ready faild or There is a problem";
+            m_result = -5;
+            return;
+        }
+<<<<<<< HEAD
+        QThread::msleep(5);
+        QApplication::processEvents();
+=======
+        Delay_MSec(30);
+>>>>>>> 2e0f9ee127abe46ebfb960069380be7a26afa73a
+    }
+    if(Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.berror == 0)
+    {
+        // get box on elevator,moust be wait elevator ready
+        if(m_order.order == 122227)//----------m_order.order == 7 || m_order.order == 8 || m_order.order == 9 || m_order.order == 10)
+        {
+            struct timeval tpStart,tpEnd;
+            float timeUse = 0;
+            gettimeofday(&tpStart,NULL);
+            while (timeUse < TIMEOUT)
+            {
+                if(!Myconfig::GetInstance()->m_flag)
+                {
+                    m_result = -99;
+                    return ;
+                }
+                //判断电梯是否到位
+                if(m_order.order == 7 || m_order.order == 8)
+                {
+                    if(Myconfig::GetInstance()->m_elevatorMap[888888].status.curruntLayer == m_order.z)//elevator id
+                    {
+                        //发送指令
+                        TCommtransceivermanager::GetInstance()->SendcommandByExtern(m_order,m_id);
+                        break;
+                    }
+                }
+                else
+                {
+                    int layer = 31;
+                    if(m_order.order == 9)
+                    {
+                        layer = 1;
+                    }
+                    else
+                        layer = 2;
+                    if(Myconfig::GetInstance()->m_elevatorMap[888888].status.curachelayer == layer)//and signal about runner can get box signal
+                    {
+                        //发送指令
+                        TCommtransceivermanager::GetInstance()->SendcommandByExtern(m_order,m_id);
+                        break;
+                    }
+
+                }
+
+                gettimeofday(&tpEnd,NULL);
+                timeUse = 1000 *(tpEnd.tv_sec - tpStart.tv_sec) + 0.001*(tpEnd.tv_usec - tpStart.tv_usec);
+                if(timeUse >= TIMEOUT)
+                    return ;
+                QThread::msleep(5);
+                QApplication::processEvents();
+            }
+        }
+        else if(m_order.order == 1)
+        {
+            m_tempValue = Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.x;
+            m_tempValue += m_order.value;
+            qDebug()<<"update x:"<< m_tempValue;
+            m_order.value = m_order.value * -1;// x direction is contrary so value * -1
+            if(false == CRUDBaseOperation::getInstance()->updateCarPosition(m_id,"x",m_tempValue,m_instructMsg))
+            {
+                m_result = 2;
+                qDebug()<<"on update point "<<m_instructMsg;
+            }
+        }
+        else if(m_order.order == 0 || m_order.order == 7 ||m_order.order == 8)//7 8 is test
+        {
+            m_tempValue = Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.y;
+            m_tempValue += m_order.value;
+            qDebug()<<"update y:"<< m_tempValue;
+            if(false == CRUDBaseOperation::getInstance()->updateCarPosition(m_id,"y",m_tempValue,m_instructMsg))
+            {
+                m_result = 3;
+                qDebug()<<"on update point "<<m_instructMsg;
+            }
+        }
+//        else if(m_order.order == 8) //car out of elevator y change z change too
+//        {
+//            m_tempValue = m_order.z;
+//            if(false == CRUDBaseOperation::getInstance()->updateCarPosition(m_id,"z",m_tempValue,m_instructMsg))
+//                m_result = 3;
+//        }
+        //normal move or get box on store
+        m_result = 8;// in instruction order = 7 or =8;取货指令不需要等待其他信号
+       TCommtransceivermanager::GetInstance()->SendcommandByExtern(m_order,m_id);
+    }
+    else
+    {
+        qDebug()<<"car resive instruction in not ready or There is a problem ";
+        m_result = -1;
+    }
+}
+
+int CarInstruction::getResult(QString &exeMsg)
+{
+     qDebug()<<"car instruction is begin!";
+    if(m_result == -4)
+    {
+        exeMsg = QString("%1  Terminate!").arg(m_order.type);
+        return m_result;
+    }
+    else if(m_result == -1)
+    {
+        exeMsg = QString("%1  The car fails when it is running!").arg(m_order.type);
+        return m_result;
+    }
+    else if(m_result == -5)
+    {
+        exeMsg = QString("%1 Car execution status not satisfied!").arg(m_order.type);
+        return m_result;
+    }
+    struct timeval tpStart,tpEnd;
+    float timeUse = 0;
+    gettimeofday(&tpStart,NULL);
+    struct timeval ws,we;
+    float timeUseWait = 0;
+    gettimeofday(&ws,NULL);
+
+    while(true)
+    {
+        if(Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.bunready!=0)
+        {
+            break;
+        }
+        gettimeofday(&we,NULL);
+        timeUseWait = 1000 *(we.tv_sec - ws.tv_sec) + 0.001*(we.tv_usec - ws.tv_usec);
+        if(timeUseWait >= 200000)
+        {
+            exeMsg = "time out";
+            m_result = -21;
+            qDebug()<<"Wait for begin single(ready -> not ready) time out";
+            return m_result;
+        }
+        QThread::msleep(10);
+        QApplication::processEvents();
+    }
+    while (timeUse < TIMEOUT)
+    {
+        if(isTerminate)
+        {
+            m_result = -99;
+            exeMsg = QString("%1  timeout!").arg(m_order.type);
+            return m_result;
+        }
+       if(Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.berror != 0)
+       {
+            m_result = -21;
+            exeMsg = "Exec CarInstruction Car has Problem";
+            return m_result;
+       }
+        //to check car status status 0--->1
+       // qDebug()<<Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.berror<<"-"<<Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.bunready <<"-"<< Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.bready;
+       if( Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.bunready == 0 && Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.statusinfodstru.bready != 0)
+        {
+            if(m_order.order == 1)
+            {
+                Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.x = m_tempValue;
+            }
+            else if(m_order.order == 0 || m_order.order == 7)
+            {
+                 Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.y = m_tempValue;
+            }
+            else if(m_order.order == 8)//out of elevator update car.z
+            {
+                 Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.z = m_tempValue;
+                 Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.y = m_tempValue;
+            }
+            else if(m_order.order == 4 ||  m_order.order == 3) //pick up (shelves,box_num)
+            {
+                QByteArray buff("");
+                memcpy(Myconfig::GetInstance()->m_storeinfoMap[m_order.shelves].boxnbr,buff,sizeof(buff));
+                Myconfig::GetInstance()->m_storeinfoMap[m_order.shelves].update = true;
+            }
+            else if(m_order.order == 14 || m_order.order == 15) //putinto
+            {
+                memcpy(Myconfig::GetInstance()->m_storeinfoMap[m_order.shelves].boxnbr,m_order.box_num.toLocal8Bit(),sizeof(m_order.box_num));
+                Myconfig::GetInstance()->m_storeinfoMap[m_order.shelves].update = true;
+            }
+            m_result = 0;
+            exeMsg = QString("%1  Exec successful!").arg(m_order.type);
+            break;
+        }
+        gettimeofday(&tpEnd,NULL);
+        timeUse = 1000 *(tpEnd.tv_sec - tpStart.tv_sec) + 0.001*(tpEnd.tv_usec - tpStart.tv_usec);
+        if(timeUse >= TIMEOUT)
+        {
+            exeMsg = "time out";
+            qDebug()<<"car instruction is finished! time out";
+            break;
+        }
+        QThread::msleep(5);
+        QApplication::processEvents();
+    }
+//    if(m_order.order == 0)
+//    {
+//        Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.x = m_tempValue;
+//    }
+//    else if(m_order.order == 1 ||m_order.order == 7 || m_order.order == 8)//7 8 is test
+//    {
+//         Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.y = m_tempValue;
+//    }
+//    qDebug()<<"Current position:"<<Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.x <<" ,"<<Myconfig::GetInstance()->m_CarMap[m_id].deveceStatus.carCurrentPosion.y;
+    qDebug()<<"car instruction is finished!";
+    return m_result;
+
+}
+

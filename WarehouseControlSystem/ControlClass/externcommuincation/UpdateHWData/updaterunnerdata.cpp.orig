@@ -1,0 +1,104 @@
+#include "updaterunnerdata.h"
+
+UpdateRunnerData::UpdateRunnerData()
+{
+
+}
+
+UpdateRunnerData::~UpdateRunnerData()
+{
+
+}
+
+int UpdateRunnerData::SetRunnerParamByFrame(int datatype, QMap<int, int> Data)
+{
+    switch (datatype) {
+    //    case 1: //DiscreteInputs
+    //        break;
+    //    case 2://Coils
+    //        break;
+    //    case 3://InputRegisters
+    //        break;
+    case 1://HoldingRegisters D0
+    {
+        for(auto it = Data.begin(); it!= Data.end();++it )
+        {
+            if(Myconfig::GetInstance()->m_runer.runneratastru.holdresMap.contains(it.key()))
+            {
+                Myconfig::GetInstance()->m_runer.runneratastru.holdresMap[it.key()] = it.value();
+            }
+            else{
+                Myconfig::GetInstance()->m_runer.runneratastru.holdresMap.insert(it.key(),it.value());
+            }
+            if(it.key() == 2)//赋值map 地址 2
+            {
+                if(it.value() >= 1 && it.value() <= 8)
+                {
+                    if(Myconfig::GetInstance()->m_cacheRunerMap.contains(it.value()))
+                    {
+                        if(!Myconfig::GetInstance()->m_cacheRunerMap[it.value()])
+                        {
+                            Myconfig::GetInstance()->m_cacheRunerMap[it.value()] = true;
+                        }
+                    }
+                    else{
+                        Myconfig::GetInstance()->m_cacheRunerMap.insert(it.value(),true);
+                    }
+                }
+            }
+            //qDebug()<<"runner:recedata"<<QString("adress:%1;value:%2").arg(QString::number(it.key())).arg(QString::number(it.value()));
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void UpdateRunnerData::Updateconnectstate(int id, bool value)
+{
+<<<<<<< HEAD
+    //Myconfig::GetInstance()->m_runer.isOnline
+    if( Myconfig::GetInstance()->m_runer.isOnline != value)
+    {
+        Myconfig::GetInstance()->m_runer.isOnline= value;
+    }
+    if(value)
+    {
+
+        if(Myconfig::GetInstance()->m_runer.runneratastru.connectresult !=1)
+        {
+            Myconfig::GetInstance()->m_runer.runneratastru.connectresult =1 ;
+        }
+    }
+    else{
+
+        if(Myconfig::GetInstance()->m_runer.runneratastru.connectresult !=0)
+        {
+            Myconfig::GetInstance()->m_runer.runneratastru.connectresult =0;
+=======
+    //流道连接状态更新
+    Q_UNUSED(id)
+    //if(Myconfig::GetInstance()->m_runer.contains(id))
+    {
+        if(Myconfig::GetInstance()->m_runer.isOnline != value)
+        {
+            Myconfig::GetInstance()->m_runer.isOnline = value;
+>>>>>>> 257eecaabafc8cc9dc1be2e3e8bcbb248ab6b347
+        }
+        if(value)
+        {
+            if(Myconfig::GetInstance()->m_runer.runneratastru.connectresult !=1)
+            {
+                Myconfig::GetInstance()->m_runer.runneratastru.connectresult =1;
+            }
+        }
+        else{
+            if(Myconfig::GetInstance()->m_runer.runneratastru.connectresult != 0)
+            {
+                Myconfig::GetInstance()->m_runer.runneratastru.connectresult = 0;
+            }
+        }
+
+    }
+}

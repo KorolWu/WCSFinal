@@ -1,0 +1,155 @@
+#include "kdispatch.h"
+
+KDispatch::KDispatch(KPosition task_P, QString &ip, const TaskInfoStru task)
+{
+    qRegisterMetaType<OrderStru>("OrderStru");
+    this->m_task_p = task_P;
+    this->m_ip = ip;
+    this->m_task = task;
+    //这里还有通讯和流道
+    if(KDeviceSingleton::getInstance()->m_DeviceMap.contains(ip))
+    {
+        m_pCom = KDeviceSingleton::getInstance()->m_DeviceMap[ip];
+        connect(this,&KDispatch::Ordered,m_pCom,&BaseDevice::handelOrder);
+        RgvOrder *m_rgvOrder = new RgvOrder();
+        m_pCom->m_pOrderStrategy = m_rgvOrder;
+    }
+    else
+    {
+        m_pCom = nullptr;
+    }
+    //test
+
+}
+
+KDispatch::~KDispatch()
+{
+    m_pCom = nullptr;
+    delete m_pCom;
+}
+<<<<<<< HEAD
+
+
+=======
+    
+>>>>>>> b4b42d83b68ce374e2906ecf9c00e85a79026fa3
+/// \brief KDispatch::saveSubTaskInfo
+/// \return
+/// 将轨迹产生的子任务保存到数据库里面
+bool KDispatch::saveSubTaskInfo()
+{
+    QQueue<OrderStru> sub_task;
+    sub_task = m_taskQueue;
+    QStringList field;
+
+    field<<"taskNum"<<"taskType"<<"subTaskNum"<<"sequence" << "state"<<"storeNum"<<"deviceIp"<<"commandData";
+    QString taskType = "";
+    int sequence = 1;
+    if(m_task.taskNum.contains("L"))
+        taskType = "出库";
+    else
+        taskType = "入库";
+    QList<QVariantList> values;
+    while(sub_task.isEmpty() == false)
+    {
+        OrderStru o = sub_task.dequeue();
+        QVariantList value;
+        value<<m_task.taskNum<<taskType<<transformationOrder(o.order)<<QString::number(sequence, 10)<<"Created"<<m_task.boxNum<<m_ip<<"commandDate";
+        values.append(value);
+        sequence ++;
+    }
+    QString errorInfo;
+    if(CRUDBaseOperation::getInstance()->ExcBatchReplaceDB("t_sub_taskInfo",field,values,errorInfo))
+    {
+        return true;
+    }
+    else{
+        qDebug()<<"errorinfo:"<<errorInfo<<endl;
+        return false;
+    }
+    return true;
+
+}
+
+bool KDispatch::runSubTask()
+{
+    qDebug()<<QThread::currentThreadId();
+    int sequnce = 1;
+    while(false == m_taskQueue.isEmpty())
+    {
+        OrderStru o = m_taskQueue.dequeue();
+        struct timeval tpStart,tpEnd;
+        float timeUse = 0;
+        gettimeofday(&tpStart,NULL);
+        while (true)
+        {
+            emit Ordered(o);
+            if(m_inp == false)// 小车完成信号
+            {   QEventLoop loop;
+                QTimer::singleShot(1000,&loop,SLOT(quit()));
+                loop.exec();
+                QString sqlErr = "";
+                CRUDBaseOperation::getInstance()->changeSubtaskStatus(m_task.taskNum,"--",sequnce,sqlErr);
+                break;
+            }
+            //test if sub task over
+            //time out return function,change car status Err isLocking
+            gettimeofday(&tpEnd,NULL);
+            timeUse = 1000 *(tpEnd.tv_sec - tpStart.tv_sec) + 0.001*(tpEnd.tv_usec - tpStart.tv_usec);
+            if(timeUse >= TIMEOUT)
+                break;
+            QApplication::processEvents(QEventLoop::AllEvents,50);
+        }
+    }
+    QMutexLocker locker(&Myconfig::GetInstance()->m_carMap_mutex);
+    Myconfig::GetInstance()->m_CarMap[m_ip].deveceStatus.isLocking = false;
+    Myconfig::GetInstance()->m_CarMap[m_ip].deveceStatus.status = 1;
+    //delete crrunt task
+
+    return false;
+}
+
+QString KDispatch::transformationOrder(int i)
+{
+    if(i == 0)
+        return "横移车辆";
+    else if(i == 1)
+        return "竖移车辆";
+    else if(i == 3)
+        return "左取货";
+    else if(i == 4)
+        return " 右取货";
+    else if(i == 5)
+        return "呼叫电梯";
+    else if(i == 6)
+        return "进电梯";
+    else if(i == 7)
+        return "出电梯";
+    return "unknow Order";
+}
+
+void KDispatch::run()
+{
+    if(m_task.taskNum.contains("出库"))// 入库
+    {
+        GetOutTrajectory *t = new GetOutTrajectory(m_task_p,m_ip,m_task);
+        m_taskQueue = t->getTrajectory();
+    }
+    else
+    {
+        GenerateInputWarehousingOrders *t = new GenerateInputWarehousingOrders();
+        t->SetPathParam(m_task_p,Myconfig::GetInstance()->m_CarMap[m_ip].deveceStatus.carCurrentPosion);
+        m_taskQueue = t->GetInputWarehousingOrders();
+    }
+//    getTrajectory_out();
+    saveSubTaskInfo();
+    runSubTask();
+    //保存当前任务完成的状态，完成 未完成，或者报警日志
+    m_task.status = "已完成";
+    QString err = "";
+    if(!CRUDBaseOperation::getInstance()->saveCompletedTask(m_task,err))
+        GetSystemLogObj()->writeLog("完成任务保存失败!-->"+err,2);
+    err = "";
+    if(!CRUDBaseOperation::getInstance()->removeCrruntTask(m_task,err))
+        GetSystemLogObj()->writeLog("移除执行完成任务失败!-->"+err,3);
+}

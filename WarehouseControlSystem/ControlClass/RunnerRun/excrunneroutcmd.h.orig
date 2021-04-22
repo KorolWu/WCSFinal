@@ -1,0 +1,36 @@
+#ifndef EXCRUNNEROUTCMD_H
+#define EXCRUNNEROUTCMD_H
+
+#include <QObject>
+#include <Myconfig.h>
+#include <QDateTime>
+#include <QEventLoop>
+#include <QTimer>
+
+class ExcRunnerOutCmd:public QObject
+{
+public:
+    ExcRunnerOutCmd();
+    void SetExcRunnerParam(int id,int scanid);
+    void ExcRun();
+    void StopRun();
+private:
+    bool IsStop;
+<<<<<<< HEAD
+    void ExcRunnerForOutNew();
+=======
+     void ExcRunnerForOutNew();
+>>>>>>> 468a02b4cb91ffd958f4502a8f1eeefa0dfaa289
+    void ExcRunnerForInNew();
+    void ExcScanCmd();
+    int  CheckScanisOK();
+    void ExcRunnerPass();
+    int  m_id;
+    bool m_changeD6;
+    bool m_changeD8;
+    int m_scanid ;
+    qint64 m_time = 0;
+
+};
+
+#endif // EXCRUNNEROUTCMD_H
